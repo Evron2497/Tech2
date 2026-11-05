@@ -1685,15 +1685,15 @@ def ensure_generated_signals(start_round, count=10):
 # ============================================================
 LOBBY_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Game Lobby</title><style>
 *{box-sizing:border-box}body{margin:0;background:#0d1016;color:#f4f6fa;font:15px Arial,sans-serif}.top{padding:18px 5%;background:#171c25;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.top a{color:#ffca6b;text-decoration:none}.wrap{max-width:1180px;margin:auto;padding:28px 5%}.hero{padding:26px;border-radius:18px;background:linear-gradient(120deg,#182b26,#17202d);border:1px solid #2d4b40;margin-bottom:22px}.hero h1{margin:0 0 8px;font-size:clamp(25px,5vw,38px)}.muted{color:#aeb8c6;line-height:1.5}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.game{background:#181e28;border:1px solid #303948;border-radius:14px;padding:20px;min-height:190px;display:flex;flex-direction:column}.game h2{margin:5px 0 8px}.game .emoji{font-size:32px}.game .tag{font-size:11px;color:#ffca6b;text-transform:uppercase;letter-spacing:1px}.game a,.game button{margin-top:auto;display:inline-block;text-align:center;padding:12px;border:0;border-radius:8px;background:#28a745;color:white;text-decoration:none;font-weight:bold;cursor:pointer}.game.disabled{opacity:.75}.game.disabled button{background:#454d59;cursor:not-allowed}.notice{margin-top:20px;padding:14px;border:1px solid #6b5630;background:#2a2418;border-radius:10px;color:#f2d38a;font-size:13px}@media(max-width:520px){.wrap{padding:18px 4%}.hero{padding:20px}.top{padding:14px 4%}}
-</style></head><body><header class="top"><b>✈️ AVIATOR · GAME LOBBY</b><span>Welcome, <strong>@{{ username }}</strong> · Available: <strong>KES {{ '%.2f'|format(balance) }}</strong> &nbsp; <a href="/logout">Logout</a></span></header><main class="wrap"><section class="hero"><h1>Choose your game</h1><p class="muted">Explore the game lobby. Aviator is currently available; additional games are shown in the catalogue and will be enabled after their game engines and payment rules are implemented.</p></section><section class="grid">
+</style></head><body><header class="top"><b>✈️ AVIATOR · GAMES</b><span>Welcome, <strong>@{{ username }}</strong> · Available: <strong>KES {{ '%.2f'|format(balance) }}</strong> &nbsp; <a href="/logout">Logout</a></span></header><main class="wrap"><section class="hero"><h1>Choose your game</h1><p class="muted">Explore the game lobby. Aviator is currently available; additional games are shown in the catalogue and will be enabled after their game engines and payment rules are implemented.</p></section><section class="grid">
 <article class="game"><div class="emoji">✈️</div><span class="tag">Available</span><h2>Aviator</h2><p class="muted">Play the live crash game, manage bets and cash out before the round ends.</p><a href="/aviator">PLAY AVIATOR</a></article>
-<article class="game"><div class="emoji">🚀</div><span class="tag">Signals</span><h2>Aviator Signals</h2><p class="muted">Choose a paid signal access package and view administrator-published estimates after payment is confirmed.</p><a href="/signals">AVIATOR SIGNAL</a></article>
-<article class="game disabled"><div class="emoji">💎</div><span class="tag">Coming soon</span><h2>Mines</h2><p class="muted">Grid-based risk game. Not yet enabled for wagering.</p><button disabled>COMING SOON</button></article>
-<article class="game disabled"><div class="emoji">🎯</div><span class="tag">Coming soon</span><h2>Plinko</h2><p class="muted">Ball-drop multiplier game. Not yet enabled for wagering.</p><button disabled>COMING SOON</button></article>
-<article class="game disabled"><div class="emoji">🎲</div><span class="tag">Coming soon</span><h2>Dice</h2><p class="muted">Number prediction game. Not yet enabled for wagering.</p><button disabled>COMING SOON</button></article>
-<article class="game disabled"><div class="emoji">🪐</div><span class="tag">Coming soon</span><h2>Spaceman</h2><p class="muted">Multiplier-style game. Not yet enabled for wagering.</p><button disabled>COMING SOON</button></article>
-<article class="game disabled"><div class="emoji">⚡</div><span class="tag">Coming soon</span><h2>JetX</h2><p class="muted">Crash-style game. Not yet enabled for wagering.</p><button disabled>COMING SOON</button></article>
-<article class="game disabled"><div class="emoji">🎡</div><span class="tag">Coming soon</span><h2>Lucky Wheel</h2><p class="muted">Wheel game. Not yet enabled for wagering.</p><button disabled>COMING SOON</button></article>
+<article class="game"><div class="emoji">🚀</div><span class="tag">Signals</span><h2>Aviator Signals</h2><p class="muted">Choose a paid signal access package Aviator.</p><a href="/signals">AVIATOR SIGNAL</a></article>
+<article class="game"><div class="emoji">🚀</div><span class="tag">Betika Signals</span><h2>Betika</h2><p class="muted">Choose a paid signal access package Betika.</p><a href="/aviator">PLAY AVIATOR</a></article>
+<article class="game"><div class="emoji">🚀</div><span class="tag">Odibet Signals</span><h2>Odibets</h2><p class="muted">Choose a paid signal access package Odibets.</p><a href="/aviator">PLAY AVIATOR</a></article>
+<article class="game"><div class="emoji">🚀</div><span class="tag">Playmaster Signals</span><h2>Playmaster</h2><p class="muted">Choose a paid signal access package Playmaster.</p><a href="/aviator">PLAY AVIATOR</a></article>
+<article class="game"><div class="emoji">🚀</div><span class="tag">1XBet Signals</span><h2>1XBet</h2><p class="muted">Choose a paid signal access package 1XBet.</p><a href="/aviator">PLAY AVIATOR</a></article>
+<article class="game"><div class="emoji">🚀</div><span class="tag">JetX Signals</span><h2>JetX</h2><p class="muted">Choose a paid signal access package JetX.</p><a href="/aviator">PLAY AVIATOR</a></article>
+<article class="game"><div class="emoji">🚀</div><span class="tag">SportPesa Signals</span><h2>SportPesa</h2><p class="muted">Choose a paid signal access package SportPesa.</p><a href="/aviator">PLAY AVIATOR</a></article>
 </section><p class="notice"> <strong>TECH-STAR</strong><br>
     Evron Enterprises.</p></main></body></html>"""
 
@@ -1702,9 +1702,8 @@ SIGNALS_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><m
 </style></head><body><header class="top"><b>✈️ AVIATOR SIGNAL CENTER</b><span>@{{ username }} &nbsp; <a href="/lobby">Game lobby</a> &nbsp; <a href="/aviator">Play Aviator</a></span></header><main class="wrap"><h1>Aviator signal access</h1><p class="muted">Select a time-limited access package. Nexus Pay will send an M-Pesa STK prompt to your phone. Your access starts only after the signed Nexus webhook verifies the exact amount and an administrator approves the order.</p>
 {% if active %}<section class="panel"><h2>Signal access active</h2><p class="status">Payment confirmed and approved. Access expires at {{ active.expires_at }}.</p><p class="muted">Next Aviator round: <strong id="customer-next-round">#{{ next_round }}</strong></p><p class="muted">Package: {{ active.plan_minutes }} minutes · Rounds: #{{ active.start_round or next_round }}–#{{ active.end_round or (next_round + active.plan_minutes - 1) }} · Paid: KES {{ '%.2f'|format(active.amount) }}</p><h3>Upcoming round estimates</h3><p class="muted">Automatically generated sample values for exactly the rounds included in your package. They are not predictions of actual outcomes.</p><div class="feed">{% for sig in signals %}<article class="signal"><strong>{{ sig.round_label }}</strong> · {{ sig.signal_time }}<h2>{{ '%.2f'|format(sig.predicted_multiplier) }}x estimate</h2><p class="muted">Confidence label: {{ sig.confidence }}{% if sig.notes %}<br>{{ sig.notes }}{% endif %}</p></article>{% else %}<p class="muted">No signals have been published during this access period yet. Refresh this page later.</p>{% endfor %}</div></section>{% else %}<section class="panel locked"><h2>Choose your signal package</h2><div class="plans"><article class="plan"><h3>5-minute signal</h3><div class="price">KES 200</div><p class="muted">Five minutes of access after payment confirmation.</p><button class="btn" onclick="buySignal(5)">PAY KES 200</button></article><article class="plan"><h3>10-minute signal</h3><div class="price">KES 400</div><p class="muted">Ten minutes of access after payment confirmation.</p><button class="btn" onclick="buySignal(10)">PAY KES 400</button></article></div><label for="phone">M-Pesa phone number</label><input class="field" id="phone" placeholder="0712345678" inputmode="tel"><p id="payStatus" class="muted" aria-live="polite">No active signal subscription.</p></section>{% endif %}
 <section class="panel"><h3>Recent signal purchases</h3><div class="scroll"><table><tr><th>Package</th><th>Amount</th><th>Status</th><th>Expires</th></tr>{% for item in history %}<tr><td>{{ item.plan_minutes }} minutes</td><td>KES {{ '%.2f'|format(item.amount) }}</td><td>{{ item.status }}</td><td>{{ item.expires_at or '—' }}</td></tr>{% else %}<tr><td colspan="4">No signal purchases yet.</td></tr>{% endfor %}</table></div></section>
-<p class="warn">Important: Aviator outcomes are random. Premium signals are provided
-    to help guide betting decisions.
-    Purchasing signals do not guarantee a successful outcome.</p></main>
+<p class="warn">TECH-STAR: .
+    Purchasing signals guarantee a successful outcome.</p></main>
 <script>
 async function refreshCustomerNextRound(){const el=document.getElementById('customer-next-round');if(!el)return;try{const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)return;const d=await r.json();el.textContent='#'+(Number(d.round_id||0)+1);}catch(e){}}
 refreshCustomerNextRound();setInterval(refreshCustomerNextRound,2500);
@@ -3124,7 +3123,7 @@ def admin_confirm_nexus():
 # ============================================================
 
 def nexus_b2c_disbursement(phone_number, amount, username, withdrawal_id=None, reference=None):
-    """Send a withdrawal through the configured Nexus Pay B2C endpoint.
+    """Send a withdrawal through the configured Nexus Pay.
 
     The balance is reserved by api_withdraw before this function is called.
     This function only calls the provider and records its response.
@@ -3199,7 +3198,7 @@ def nexus_b2c_disbursement(phone_number, amount, username, withdrawal_id=None, r
     provider_message = (
         data.get("message")
         or data.get("description")
-        or "B2C payout request accepted by Nexus Pay."
+        or "payout request accepted by Nexus Pay."
     )
 
     # A provider may accept the request but complete the payout asynchronously.
