@@ -8735,9 +8735,9 @@ def player_lobby():
 def aviator_game_page():
     if "username" not in session:
         return redirect("/login")
-    # Admins may open the game page to view the admin-only upcoming-round
-    # telemetry. The /api/state endpoint still withholds that data from
-    # non-admin accounts on the server.
+    # Allow both administrators and players to open the game page.
+    # The existing /api/state response exposes upcoming crash values only
+    # when the authenticated database user has the ADMIN role.
     touch_user(session["username"])
     return render_template_string(HTML, username=session["username"])
 
@@ -14016,3 +14016,4 @@ if __name__ == "__main__":
         ),
         use_reloader=False
     )
+
