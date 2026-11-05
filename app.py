@@ -7033,8 +7033,6 @@
 
 
 
-
-
 import os
 import time
 import random
@@ -7379,22 +7377,6 @@ def init_db():
             status TEXT NOT NULL DEFAULT 'PUBLISHED',
             created_at TEXT NOT NULL
         )""")
-        # Additive round-based signal migrations; retain legacy column names.
-        signal_order_columns = {row["name"] for row in conn.execute("PRAGMA table_info(signal_orders)").fetchall()}
-        if "start_round_id" not in signal_order_columns:
-            conn.execute("ALTER TABLE signal_orders ADD COLUMN start_round_id INTEGER")
-        signal_columns = {row["name"] for row in conn.execute("PRAGMA table_info(aviator_signals)").fetchall()}
-        if "round_id" not in signal_columns:
-            conn.execute("ALTER TABLE aviator_signals ADD COLUMN round_id INTEGER")
-        # Preserve currently active legacy paid packages by converting their
-        # remaining access into the equivalent 5/10 upcoming-round window.
-        conn.execute(
-            """UPDATE signal_orders
-               SET start_round_id=COALESCE((SELECT MAX(id)+1 FROM rounds), 1)
-               WHERE status='PAID' AND start_round_id IS NULL
-                 AND expires_at IS NOT NULL AND expires_at>?""",
-            (datetime.now().isoformat(),)
-        )
 
         admin_username = ADMIN_USERNAME
         admin_password = ADMIN_PASSWORD
@@ -8707,16 +8689,16 @@ LOBBY_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><met
 
 SIGNALS_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aviator Signals</title><meta name="signal-csrf" content="{{ csrf }}"><style>
 *{box-sizing:border-box}body{margin:0;background:#0d1016;color:#f4f6fa;font:15px Arial,sans-serif}.top{padding:16px 5%;background:#171c25;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.top a{color:#8dc5ff;text-decoration:none}.wrap{max-width:1000px;margin:auto;padding:25px 5%}.panel{background:#181e28;border:1px solid #303948;border-radius:14px;padding:20px;margin-bottom:16px}.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.plan{border:1px solid #3a4656;border-radius:12px;padding:18px;background:#111720}.price{font-size:30px;color:#39d98a;font-weight:bold}.btn{display:block;width:100%;padding:13px;border:0;border-radius:8px;background:#28a745;color:white;font-weight:bold;cursor:pointer;margin-top:12px}.muted{color:#aeb8c6;line-height:1.5}.warn{color:#ffd17b;background:#2b2418;border:1px solid #6a552f;padding:12px;border-radius:9px}.status{padding:12px;border-radius:9px;background:#172b22;color:#a8f0c6}.feed{display:grid;gap:10px}.signal{padding:14px;border:1px solid #3b4655;border-radius:10px;background:#111720}.signal strong{color:#ffd17b}.locked{opacity:.95}.field{width:100%;padding:12px;margin-top:7px;background:#0d1016;color:white;border:1px solid #3a4656;border-radius:8px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:9px;border-bottom:1px solid #303948}.scroll{overflow:auto}@media(max-width:520px){.wrap{padding:16px 4%}.panel{padding:15px}}
-</style></head><body><header class="top"><b>✈️ AVIATOR SIGNAL CENTER</b><span>@{{ username }} &nbsp; <a href="/lobby">Game lobby</a> &nbsp; <a href="/aviator">Play Aviator</a></span></header><main class="wrap"><h1>Aviator signal access</h1><p class="muted">Select a round-based access package. Nexus Pay will send an M-Pesa STK prompt to your phone. Your access starts only after the signed Nexus webhook verifies the exact amount and an administrator approves the order.</p>
-{% if active %}<section class="panel"><h2>Signal access active</h2><p class="status">Payment confirmed and approved. Your package is valid for the assigned round range below.</p><p class="muted">Next Tech-Star game round: <strong id="customer-next-round">#{{ next_round }}</strong></p><p class="muted">Package: {{ active.plan_minutes }} rounds · Covers rounds #{{ signal_range_start }}–#{{ signal_range_end }} · Paid: KES {{ '%.2f'|format(active.amount) }}</p><h3>Administrator-published signals</h3><p class="muted">These are estimates supplied by the administrator, not guaranteed predictions. Showing {{ published_signal_count }} published signals across {{ active.plan_minutes }} package rounds.</p><div class="feed">{% for sig in signals %}<article class="signal"><strong>{{ sig.round_label }}</strong>{% if sig.published %} · {{ sig.signal_time }}<h2>{{ '%.2f'|format(sig.predicted_multiplier) }}x estimate</h2><p class="muted">Confidence label: {{ sig.confidence }}{% if sig.notes %}<br>{{ sig.notes }}{% endif %}</p>{% else %}<p class="muted">No signal published for this round yet. Check again later.</p>{% endif %}</article>{% endfor %}</div></section>{% else %}<section class="panel locked"><h2>Choose your signal package</h2><div class="plans"><article class="plan"><h3>5-round signal</h3><div class="price">KES 200</div><p class="muted">Access to the next five published round signals after admin approval.</p><button class="btn" onclick="buySignal(5)">PAY KES 200</button></article><article class="plan"><h3>10-round signal</h3><div class="price">KES 400</div><p class="muted">Access to the next ten published round signals after admin approval.</p><button class="btn" onclick="buySignal(10)">PAY KES 400</button></article></div><label for="phone">M-Pesa phone number</label><input class="field" id="phone" placeholder="0712345678" inputmode="tel"><p id="payStatus" class="muted" aria-live="polite">No active signal subscription.</p></section>{% endif %}
-<section class="panel"><h3>Recent signal purchases</h3><div class="scroll"><table><tr><th>Package</th><th>Amount</th><th>Status</th><th>Round coverage</th></tr>{% for item in history %}<tr><td>{{ item.plan_minutes }} rounds</td><td>KES {{ '%.2f'|format(item.amount) }}</td><td>{{ item.status }}</td><td>{% if item.start_round_id %}#{{ item.start_round_id }}–#{{ item.start_round_id + item.plan_minutes - 1 }}{% else %}Awaiting approval{% endif %}</td></tr>{% else %}<tr><td colspan="4">No signal purchases yet.</td></tr>{% endfor %}</table></div></section>
+</style></head><body><header class="top"><b>✈️ AVIATOR SIGNAL CENTER</b><span>@{{ username }} &nbsp; <a href="/lobby">Game lobby</a> &nbsp; <a href="/aviator">Play Aviator</a></span></header><main class="wrap"><h1>Aviator signal access</h1><p class="muted">Select a time-limited access package. Nexus Pay will send an M-Pesa STK prompt to your phone. Your access starts only after the signed Nexus webhook verifies the exact amount and an administrator approves the order.</p>
+{% if active %}<section class="panel"><h2>Signal access active</h2><p class="status">Payment confirmed and approved. Access expires at {{ active.expires_at }}.</p><p class="muted">Next Aviator round: <strong id="customer-next-round">#{{ next_round }}</strong></p><p class="muted">Package: {{ active.plan_minutes }} minutes · Paid: KES {{ '%.2f'|format(active.amount) }}</p><h3>Administrator-published signals</h3><p class="muted">These are estimates supplied by the administrator, not guaranteed predictions.</p><div class="feed">{% for sig in signals %}<article class="signal"><strong>{{ sig.round_label }}</strong> · {{ sig.signal_time }}<h2>{{ '%.2f'|format(sig.predicted_multiplier) }}x estimate</h2><p class="muted">Confidence label: {{ sig.confidence }}{% if sig.notes %}<br>{{ sig.notes }}{% endif %}</p></article>{% else %}<p class="muted">No signals have been published during this access period yet. Refresh this page later.</p>{% endfor %}</div></section>{% else %}<section class="panel locked"><h2>Choose your signal package</h2><div class="plans"><article class="plan"><h3>5-minute signal</h3><div class="price">KES 200</div><p class="muted">Five minutes of access after payment confirmation.</p><button class="btn" onclick="buySignal(5)">PAY KES 200</button></article><article class="plan"><h3>10-minute signal</h3><div class="price">KES 400</div><p class="muted">Ten minutes of access after payment confirmation.</p><button class="btn" onclick="buySignal(10)">PAY KES 400</button></article></div><label for="phone">M-Pesa phone number</label><input class="field" id="phone" placeholder="0712345678" inputmode="tel"><p id="payStatus" class="muted" aria-live="polite">No active signal subscription.</p></section>{% endif %}
+<section class="panel"><h3>Recent signal purchases</h3><div class="scroll"><table><tr><th>Package</th><th>Amount</th><th>Status</th><th>Expires</th></tr>{% for item in history %}<tr><td>{{ item.plan_minutes }} minutes</td><td>KES {{ '%.2f'|format(item.amount) }}</td><td>{{ item.status }}</td><td>{{ item.expires_at or '—' }}</td></tr>{% else %}<tr><td colspan="4">No signal purchases yet.</td></tr>{% endfor %}</table></div></section>
 <p class="warn">Important: Aviator outcomes are random. Premium signals are provided
     to help guide betting decisions.
-    Purchasing signal access does not guarantee a successful outcome.</p></main>
+    Purchasing signals guarantee a successful outcome.</p></main>
 <script>
 async function refreshCustomerNextRound(){const el=document.getElementById('customer-next-round');if(!el)return;try{const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)return;const d=await r.json();el.textContent='#'+(Number(d.round_id||0)+1);}catch(e){}}
 refreshCustomerNextRound();setInterval(refreshCustomerNextRound,2500);
-async function buySignal(minutes){const amount=minutes===5?200:400;const phone=document.getElementById('phone').value.trim();if(!confirm(`You are about to request an M-Pesa STK prompt for KES ${amount} for ${minutes}-round Aviator signal access. Continue?`))return;const status=document.getElementById('payStatus');status.textContent='Requesting secure M-Pesa prompt…';try{const r=await fetch('/api/signals/purchase',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name=signal-csrf]').content},body:JSON.stringify({minutes,phone_number:phone})});const data=await r.json();if(!r.ok||!data.success)throw new Error(data.message||'Payment request failed.');status.textContent=data.message+' Reference: '+data.reference+' Waiting for payment verification and administrator approval…';let tries=0;const timer=setInterval(async()=>{tries++;try{const sr=await fetch('/api/signals/order/'+encodeURIComponent(data.reference));const st=await sr.json();if(st.status==='PAID'){clearInterval(timer);status.textContent='Payment confirmed. Opening your signal access…';window.location.assign('/signals?payment=confirmed');}else if(st.status==='FAILED'){clearInterval(timer);status.textContent='Payment was not completed. You may try again.';}else if(tries>=60){clearInterval(timer);status.textContent='Still awaiting verification or administrator approval. Do not pay again; refresh later to check status.';}}catch(e){}},3000);}catch(e){status.textContent=e.message;}}
+async function buySignal(minutes){const amount=minutes===5?200:400;const phone=document.getElementById('phone').value.trim();if(!confirm(`You are about to request an M-Pesa STK prompt for KES ${amount} for ${minutes}-minute Aviator signal access. Continue?`))return;const status=document.getElementById('payStatus');status.textContent='Requesting secure M-Pesa prompt…';try{const r=await fetch('/api/signals/purchase',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name=signal-csrf]').content},body:JSON.stringify({minutes,phone_number:phone})});const data=await r.json();if(!r.ok||!data.success)throw new Error(data.message||'Payment request failed.');status.textContent=data.message+' Reference: '+data.reference+' Waiting for payment verification and administrator approval…';let tries=0;const timer=setInterval(async()=>{tries++;try{const sr=await fetch('/api/signals/order/'+encodeURIComponent(data.reference));const st=await sr.json();if(st.status==='PAID'){clearInterval(timer);status.textContent='Payment confirmed. Opening your signal access…';window.location.assign('/signals?payment=confirmed');}else if(st.status==='FAILED'){clearInterval(timer);status.textContent='Payment was not completed. You may try again.';}else if(tries>=60){clearInterval(timer);status.textContent='Still awaiting verification or administrator approval. Do not pay again; refresh later to check status.';}}catch(e){}},3000);}catch(e){status.textContent=e.message;}}
 </script></body></html>"""
 
 # ============================================================
@@ -8753,8 +8735,9 @@ def player_lobby():
 def aviator_game_page():
     if "username" not in session:
         return redirect("/login")
-    if session.get("role") == "ADMIN":
-        return redirect("/admin")
+    # Admins may open the game page to view the admin-only upcoming-round
+    # telemetry. The /api/state endpoint still withholds that data from
+    # non-admin accounts on the server.
     touch_user(session["username"])
     return render_template_string(HTML, username=session["username"])
 
@@ -9751,7 +9734,7 @@ def _mark_signal_payment_webhook(reference, status, provider_transaction_id, mes
             conn.execute("""UPDATE signal_orders SET status='PAYMENT_VERIFIED', provider_transaction_id=?, provider_message=?, updated_at=? WHERE id=? AND status='PENDING'""",
                 (provider_id, str(message or "Nexus payment confirmed; awaiting administrator approval."), now_s, order["id"]))
             conn.execute("INSERT INTO admin_audit_logs(admin_username,action,target_username,details,ip_address,created_at) VALUES(?,?,?,?,?,?)",
-                ("SYSTEM", "SIGNAL_PAYMENT_VERIFIED", order["username"], f"{order['plan_minutes']} round signal package; KES {float(order['amount']):.2f}; {reference}; awaiting admin approval", "Nexus webhook", now_s))
+                ("SYSTEM", "SIGNAL_PAYMENT_VERIFIED", order["username"], f"{order['plan_minutes']} minute signal; KES {float(order['amount']):.2f}; {reference}; awaiting admin approval", "Nexus webhook", now_s))
             conn.commit()
             return True, "Signal payment verified; administrator approval is pending.", True
         if status == "FAILED":
@@ -9784,7 +9767,7 @@ def api_signal_purchase():
         minutes = 0
     plans = {5: 200, 10: 400}
     if minutes not in plans:
-        return jsonify({"success": False, "message": "Choose the 5-round or 10-round signal package."}), 400
+        return jsonify({"success": False, "message": "Choose the 5-minute or 10-minute signal package."}), 400
     conn = get_db()
     try:
         user = conn.execute("SELECT username,phone_number FROM users WHERE username=? AND role='USER' AND is_active=1", (session["username"],)).fetchone()
@@ -9807,7 +9790,7 @@ def api_signal_purchase():
     finally:
         conn.close()
     payload = {"phoneNumber": phone, "amount": amount, "accountReference": reference,
-               "transactionDesc": f"Aviator signal access {minutes} rounds"}
+               "transactionDesc": f"Aviator signal access {minutes} minutes"}
     try:
         response = requests.post(f"{NEXUS_PAY_BASE_URL}/api/payments/stkpush", json=payload,
                                  headers=nexus_headers(), timeout=NEXUS_PAY_TIMEOUT)
@@ -9844,14 +9827,14 @@ def api_signal_order_status(reference):
         return jsonify({"success": False, "message": "Unauthorized"}), 401
     conn = get_db()
     try:
-        order = conn.execute("SELECT reference,status,plan_minutes,amount,start_round_id FROM signal_orders WHERE reference=? AND username=?",
+        order = conn.execute("SELECT reference,status,plan_minutes,amount,expires_at FROM signal_orders WHERE reference=? AND username=?",
                              (reference, session["username"])).fetchone()
     finally:
         conn.close()
     if not order:
         return jsonify({"success": False, "message": "Order not found."}), 404
     return jsonify({"success": True, "reference": order["reference"], "status": order["status"],
-                    "rounds": order["plan_minutes"], "amount": order["amount"], "start_round_id": order["start_round_id"]})
+                    "minutes": order["plan_minutes"], "amount": order["amount"], "expires_at": order["expires_at"]})
 
 
 @app.route("/signals")
@@ -9859,67 +9842,22 @@ def player_signals_page():
     if "username" not in session or session.get("role") == "ADMIN":
         return redirect("/login")
     touch_user(session["username"])
-    with GAME_LOCK:
-        current_round = GAME.get("round_id")
-        current_round_for_access = int(current_round) if current_round is not None else 0
-        next_round = current_round_for_access + 1
     conn = get_db()
     try:
-        active = conn.execute(
-            """SELECT * FROM signal_orders
-               WHERE username=? AND status='PAID' AND start_round_id IS NOT NULL
-                 AND (expires_at IS NULL OR expires_at>?)
-                 AND (start_round_id + plan_minutes - 1) >= ?
-               ORDER BY id DESC LIMIT 1""",
-            (session["username"], datetime.now().isoformat(), current_round_for_access)
-        ).fetchone()
+        now = datetime.now().isoformat()
+        active = conn.execute("SELECT * FROM signal_orders WHERE username=? AND status='PAID' AND expires_at>? ORDER BY expires_at DESC LIMIT 1",
+                              (session["username"], now)).fetchone()
         signals = []
-        published_signal_count = 0
-        signal_range_start = None
-        signal_range_end = None
         if active:
-            signal_range_start = int(active["start_round_id"])
-            signal_range_end = signal_range_start + int(active["plan_minutes"]) - 1
-            rows = conn.execute(
-                """SELECT s.* FROM aviator_signals s
-                   WHERE s.status='PUBLISHED'
-                     AND s.round_id BETWEEN ? AND ?
-                     AND s.id=(SELECT MAX(s2.id) FROM aviator_signals s2
-                               WHERE s2.status='PUBLISHED' AND s2.round_id=s.round_id)
-                   ORDER BY s.round_id ASC""",
-                (signal_range_start, signal_range_end)
-            ).fetchall()
-            published_by_round = {int(row["round_id"]): dict(row) for row in rows}
-            # Render exactly 5 or 10 round slots. Unpublished slots are clearly
-            # labelled; they are never filled with invented estimates.
-            for round_id in range(signal_range_start, signal_range_end + 1):
-                signal = published_by_round.get(round_id)
-                if signal:
-                    signal["published"] = True
-                    signals.append(signal)
-                    published_signal_count += 1
-                else:
-                    signals.append({
-                        "round_id": round_id,
-                        "round_label": f"Round #{round_id}",
-                        "signal_time": "",
-                        "predicted_multiplier": None,
-                        "confidence": "Not published",
-                        "notes": "",
-                        "published": False,
-                    })
-        history = conn.execute(
-            "SELECT plan_minutes,amount,status,created_at,expires_at,start_round_id FROM signal_orders WHERE username=? ORDER BY id DESC LIMIT 8",
-            (session["username"],)
-        ).fetchall()
+            signals = conn.execute("SELECT * FROM aviator_signals WHERE status='PUBLISHED' ORDER BY id DESC LIMIT 100").fetchall()
+        history = conn.execute("SELECT plan_minutes,amount,status,created_at,expires_at FROM signal_orders WHERE username=? ORDER BY id DESC LIMIT 8",
+                               (session["username"],)).fetchall()
     finally:
         conn.close()
-    return render_template_string(
-        SIGNALS_HTML, username=session["username"], active=active, signals=signals,
-        published_signal_count=published_signal_count, history=history,
-        next_round=next_round, signal_range_start=signal_range_start,
-        signal_range_end=signal_range_end, csrf=_csrf_token()
-    )
+    with GAME_LOCK:
+        current_round = GAME.get("round_id")
+        next_round = (int(current_round) + 1) if current_round is not None else 1
+    return render_template_string(SIGNALS_HTML, username=session["username"], active=active, signals=signals, history=history, next_round=next_round, csrf=_csrf_token())
 
 
 @app.route("/admin/signals/orders/<int:order_id>/approve", methods=["POST"])
@@ -9928,47 +9866,32 @@ def admin_approve_signal_order(order_id):
         return redirect("/login")
     if not _check_csrf():
         return "Invalid request token. Refresh the admin page and try again.", 400
-
-    # Pin package access to the next actual round in the Tech-Star game engine.
-    with GAME_LOCK:
-        current_round_id = GAME.get("round_id")
-        start_round_id = (int(current_round_id) + 1) if current_round_id is not None else 1
-        conn = get_db()
-        try:
-            conn.execute("BEGIN IMMEDIATE")
-            order = conn.execute("SELECT * FROM signal_orders WHERE id=?", (order_id,)).fetchone()
-            if not order:
-                conn.rollback()
-                return "Signal order not found.", 404
-            if order["status"] == "PAID":
-                conn.commit()
-                return redirect("/admin#signal-approvals")
-            if order["status"] != "PAYMENT_VERIFIED":
-                conn.rollback()
-                return "Only Nexus payment-verified signal orders can be approved.", 409
-
-            now_s = datetime.now().isoformat()
-            cur = conn.execute(
-                """UPDATE signal_orders
-                   SET status='PAID', paid_at=?, expires_at=NULL, start_round_id=?,
-                       updated_at=?, provider_message=?
-                   WHERE id=? AND status='PAYMENT_VERIFIED'""",
-                (now_s, start_round_id, now_s,
-                 "Payment verified; round-based signal access approved by administrator.",
-                 order_id)
-            )
-            if cur.rowcount != 1:
-                conn.rollback()
-                return "Signal approval conflict; refresh and retry.", 409
-            conn.execute(
-                "INSERT INTO admin_audit_logs(admin_username,action,target_username,details,ip_address,created_at) VALUES(?,?,?,?,?,?)",
-                (session["username"], "SIGNAL_ACCESS_APPROVED", order["username"],
-                 f"Reference={order['reference']}; amount={float(order['amount']):.2f}; rounds={order['plan_minutes']}; start_round_id={start_round_id}; order_id={order_id}",
-                 request.headers.get("X-Forwarded-For", request.remote_addr), now_s)
-            )
+    conn = get_db()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        order = conn.execute("SELECT * FROM signal_orders WHERE id=?", (order_id,)).fetchone()
+        if not order:
+            conn.rollback()
+            return "Signal order not found.", 404
+        if order["status"] == "PAID":
             conn.commit()
-        finally:
-            conn.close()
+            return redirect("/admin#signal-approvals")
+        if order["status"] != "PAYMENT_VERIFIED":
+            conn.rollback()
+            return "Only Nexus payment-verified signal orders can be approved.", 409
+        now = datetime.now()
+        now_s = now.isoformat()
+        expires = (now + timedelta(minutes=int(order["plan_minutes"]))).isoformat()
+        cur = conn.execute("UPDATE signal_orders SET status='PAID', paid_at=?, expires_at=?, updated_at=?, provider_message=? WHERE id=? AND status='PAYMENT_VERIFIED'",
+            (now_s, expires, now_s, "Payment independently verified and signal access approved by administrator.", order_id))
+        if cur.rowcount != 1:
+            conn.rollback()
+            return "Signal approval conflict; refresh and retry.", 409
+        conn.execute("INSERT INTO admin_audit_logs(admin_username,action,target_username,details,ip_address,created_at) VALUES(?,?,?,?,?,?)",
+            (session["username"], "SIGNAL_ACCESS_APPROVED", order["username"], f"Reference={order['reference']}; amount={float(order['amount']):.2f}; minutes={order['plan_minutes']}; order_id={order_id}", request.headers.get("X-Forwarded-For", request.remote_addr), now_s))
+        conn.commit()
+    finally:
+        conn.close()
     return redirect("/admin#signal-approvals")
 
 
@@ -9978,41 +9901,22 @@ def admin_publish_signal():
         return redirect("/login")
     if not _check_csrf():
         return "Invalid request token. Refresh and retry.", 400
+    round_label = request.form.get("round_label", "").strip()[:80]
     signal_time = request.form.get("signal_time", "").strip()[:80]
     multiplier = safe_float(request.form.get("predicted_multiplier"))
     confidence = request.form.get("confidence", "Unrated").strip()[:30]
     notes = request.form.get("notes", "").strip()[:500]
-    try:
-        round_id = int(request.form.get("round_id", ""))
-    except (TypeError, ValueError):
-        return "Enter a valid round number.", 400
-    round_label = request.form.get("round_label", "").strip()[:80] or f"Round #{round_id}"
-    if not signal_time or multiplier is None or multiplier < 1 or multiplier > 1000:
-        return "Enter a signal time and an estimated multiplier between 1.00 and 1000.00.", 400
+    if not round_label or not signal_time or multiplier is None or multiplier < 1 or multiplier > 1000:
+        return "Enter a round label, time and a multiplier between 1.00 and 1000.00.", 400
     now = datetime.now().isoformat()
-    # Keep the engine from advancing between validating the next round and
-    # committing the corresponding signal publication.
-    with GAME_LOCK:
-        current_round_id = GAME.get("round_id")
-        minimum_round_id = (int(current_round_id) + 1) if current_round_id is not None else 1
-        if round_id < minimum_round_id:
-            return f"Choose an upcoming round number (at least {minimum_round_id}).", 400
-        conn = get_db()
-        try:
-            already_published = conn.execute(
-                "SELECT id FROM aviator_signals WHERE round_id=? AND status='PUBLISHED' LIMIT 1",
-                (round_id,)
-            ).fetchone()
-            if already_published:
-                return "A signal is already published for this round. Remove it before publishing a replacement.", 409
-            conn.execute(
-                "INSERT INTO aviator_signals(admin_username,round_id,round_label,signal_time,predicted_multiplier,confidence,notes,status,created_at) VALUES(?,?,?,?,?,?,?,'PUBLISHED',?)",
-                (session["username"], round_id, round_label, signal_time, multiplier, confidence, notes, now)
-            )
-            conn.commit()
-            audit_admin("SIGNAL_PUBLISHED", None, f"{round_label}; round_id={round_id}; estimate={multiplier:.2f}x")
-        finally:
-            conn.close()
+    conn = get_db()
+    try:
+        conn.execute("INSERT INTO aviator_signals(admin_username,round_label,signal_time,predicted_multiplier,confidence,notes,status,created_at) VALUES(?,?,?,?,?,?,'PUBLISHED',?)",
+                     (session["username"], round_label, signal_time, multiplier, confidence, notes, now))
+        conn.commit()
+        audit_admin("SIGNAL_PUBLISHED", None, f"{round_label}; estimate={multiplier:.2f}x")
+    finally:
+        conn.close()
     return redirect("/admin#signal-management")
 
 
@@ -10515,23 +10419,22 @@ ADMIN_HTML = r"""
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aviator Admin</title>
 <style>*{box-sizing:border-box}body{margin:0;background:#0e1015;color:#edf2f7;font:14px Arial,sans-serif}header{padding:16px 4%;background:#181c24;display:flex;justify-content:space-between;align-items:center;gap:12px;position:sticky;top:0;z-index:10}.admin-head-left{display:flex;align-items:center;gap:12px}.admin-menu{display:none;background:#303846;color:#fff;border:1px solid #566174;border-radius:7px;padding:8px 12px;font-size:18px}main{padding:24px 4%;max-width:1400px;margin:auto}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.card,section{background:#181c24;border:1px solid #303846;border-radius:10px;padding:16px;margin-bottom:18px}.num{font-size:25px;color:#39d98a;font-weight:bold}h2{font-size:18px}table{width:100%;border-collapse:collapse;overflow:auto}th,td{text-align:left;padding:10px;border-bottom:1px solid #303846;vertical-align:top}button{background:#28a745;color:white;border:0;border-radius:5px;padding:8px 11px;cursor:pointer}a{color:#7db6ff}small{color:#aab4c4}.scroll{overflow:auto}.warning{color:#ffca6b}@media(max-width:600px){header{padding:10px 4%}.admin-menu{display:inline-flex}main{padding:15px 3%}.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.card,section{padding:12px}.num{font-size:20px}th,td{padding:8px;font-size:12px;white-space:normal}section .scroll{max-width:100%}header.admin-collapsed .admin-brand{display:none}header.admin-collapsed{justify-content:flex-start}header.admin-collapsed .admin-head-left{flex:1}header.admin-collapsed .admin-user{display:block}header.admin-collapsed .admin-logout{display:none}header:not(.admin-expanded) .admin-nav{display:none}header.admin-expanded .admin-nav{display:flex;flex-wrap:wrap;gap:12px;width:100%;padding:10px 0}header{flex-wrap:wrap}}</style></head><body>
 <header id="adminHeader" class="admin-collapsed"><div class="admin-head-left"><button class="admin-menu" type="button" onclick="toggleAdminMenu()" aria-label="Toggle admin menu">☰</button><div class="admin-brand"><b>AVIATOR · ADMIN CONSOLE</b><br><small>Signed in as {{ admin }}</small></div><small class="admin-user">@{{ admin }}</small></div><nav class="admin-nav"><a href="#round-monitor">Next round</a><a href="#signal-approvals">Signal approvals</a><a href="#signal-management">Manage signals</a><a href="#deposit-approvals">Deposit approvals</a></nav><a class="admin-logout" href="/logout">Log out</a></header><main>
-<section id="round-monitor"><h2>Live round monitor · Tech-Star game engine</h2>
+<section id="round-monitor"><h2>Live round monitor · Upcoming round number</h2>
 <div class="cards">
 <div class="card">Current round<div class="num" id="admin-current-round">#{{ round_monitor.current_round or '—' }}</div></div>
 <div class="card">Current status<div class="num" id="admin-round-status">{{ round_monitor.status }}</div></div>
- <div class="card">Current multiplier<div class="num" id="admin-current-multiplier">{{ '%.2f'|format(round_monitor.current_multiplier) }}x</div></div>
 <div class="card">Next round<div class="num" id="admin-next-round">#{{ round_monitor.next_round or '—' }}</div></div>
 <div class="card">Betting window<div class="num"><span id="admin-betting-seconds">{{ round_monitor.betting_seconds }}</span> sec</div></div>
 </div>
-<p><small>Source: Tech-Star internal game engine. No Spribe/third-party live feed is connected. The upcoming round number is shown without revealing a future crash outcome.</small></p><div class="scroll"><h3>Latest completed round results</h3><table><tr><th>Round</th><th>Crash result</th><th>Started</th><th>Ended</th></tr>{% for r in recent_rounds %}<tr><td>#{{ r.id }}</td><td>{{ '%.2f'|format(r.crash_point) }}x</td><td>{{ r.started_at }}</td><td>{{ r.ended_at }}</td></tr>{% else %}<tr><td colspan="4">No completed rounds yet.</td></tr>{% endfor %}</table></div></section>
+<p><small>Round status updates as the game engine advances. The next round number is shown without revealing its crash result or future outcome.</small></p></section>
 <div class="cards"><div class="card">Registered users<div class="num">{{ stats.users }}</div></div><div class="card">Active players (last 5 min)<div class="num">{{ stats.active }}</div></div><div class="card">Verified deposits awaiting approval<div class="num">{{ stats.pending_count }}</div></div><div class="card">Total confirmed deposits<div class="num">KES {{ '%.2f'|format(stats.deposit_total) }}</div></div><div class="card">Pending deposit value<div class="num">KES {{ '%.2f'|format(stats.pending_total) }}</div></div><div class="card">Confirmed signal sales<div class="num">KES {{ '%.2f'|format(stats.signal_sales_total) }}</div></div><div class="card">Active signal subscriptions<div class="num">{{ stats.signal_active }}</div></div><div class="card">Verified signal payments awaiting approval<div class="num">{{ stats.signal_pending_approval }}</div></div></div>
 <section id="deposit-approvals"><h2>Payment-verified deposits awaiting approval</h2><p class="warning">Approval credits the user's spendable balance. Pending/unverified deposits cannot be used for betting.</p><div class="scroll"><table><tr><th>Reference</th><th>User / phone</th><th>Amount</th><th>Status</th><th>Created</th><th>Action</th></tr>{% for tx in deposits %}<tr><td>{{ tx.reference }}</td><td>{{ tx.username }}<br>{{ tx.phone_number }}</td><td>KES {{ '%.2f'|format(tx.amount) }}</td><td>{{ tx.status }}</td><td>{{ tx.created_at }}</td><td>{% if tx.status == 'PAYMENT_VERIFIED' %}<form method="post" action="/admin/deposits/{{ tx.id }}/approve"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Approve & credit</button></form>{% else %}—{% endif %}</td></tr>{% else %}<tr><td colspan="6">No deposits awaiting approval.</td></tr>{% endfor %}</table></div></section>
 <section><h2>Registered users</h2><div class="scroll"><table><tr><th>ID</th><th>Username</th><th>Phone</th><th>Role</th><th>Spendable balance</th><th>Created</th><th>Last active</th></tr>{% for u in users %}<tr><td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.phone_number }}</td><td>{{ u.role }}</td><td>KES {{ '%.2f'|format(u.balance) }}</td><td>{{ u.created_at }}</td><td>{{ u.last_seen_at or '—' }}</td></tr>{% endfor %}</table></div></section>
 <section><h2>Recent deposit and withdrawal records</h2><div class="scroll"><table><tr><th>Type</th><th>User</th><th>Amount</th><th>Status</th><th>Reference / Provider ID</th><th>Updated</th></tr>{% for t in tx_history %}<tr><td>Deposit</td><td>{{ t.username }}</td><td>KES {{ '%.2f'|format(t.amount) }}</td><td>{{ t.status }}</td><td>{{ t.reference }}<br>{{ t.provider_transaction_id or '' }}</td><td>{{ t.updated_at }}</td></tr>{% endfor %}{% for w in withdrawals %}<tr><td>Withdrawal</td><td>{{ w.username }}</td><td>KES {{ '%.2f'|format(w.amount) }}</td><td>{{ w.status }}</td><td>{{ w.reference or '—' }}<br>{{ w.provider_transaction_id or '' }}</td><td>{{ w.updated_at }}</td></tr>{% endfor %}</table></div></section>
 <section id="signal-management"><h2>Aviator signal management</h2><p class="warning">Publish manual estimates only. These are not guaranteed outcomes or certain predictions of a random crash game.</p>
-<form method="post" action="/admin/signals/publish" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end"><input type="hidden" name="csrf_token" value="{{ csrf }}"><label>Upcoming round number<input name="round_id" type="number" min="{{ round_monitor.next_round }}" value="{{ round_monitor.next_round }}" required style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><label>Round label (optional)<input name="round_label" maxlength="80" placeholder="Round 1234" style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><label>Signal time<input name="signal_time" required maxlength="80" placeholder="14:35 EAT" style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><label>Estimated multiplier<input name="predicted_multiplier" type="number" min="1" max="1000" step="0.01" required placeholder="1.80" style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><label>Confidence label<select name="confidence" style="display:block;width:100%;padding:10px;box-sizing:border-box"><option>Unrated</option><option>Low</option><option>Medium</option><option>High</option></select></label><label>Admin note<input name="notes" maxlength="500" placeholder="Optional context" style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><button type="submit">Publish signal</button></form>
-<div class="scroll"><table><tr><th>Round ID</th><th>Round</th><th>Time</th><th>Estimate</th><th>Label</th><th>Note</th><th>Action</th></tr>{% for sig in published_signals %}<tr><td>{{ sig.round_id or 'Legacy' }}</td><td>{{ sig.round_label }}</td><td>{{ sig.signal_time }}</td><td>{{ '%.2f'|format(sig.predicted_multiplier) }}x</td><td>{{ sig.confidence }}</td><td>{{ sig.notes or '—' }}</td><td><form method="post" action="/admin/signals/{{ sig.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Remove</button></form></td></tr>{% else %}<tr><td colspan="7">No published signals.</td></tr>{% endfor %}</table></div></section>
-<section id="signal-approvals"><h2>Aviator prediction / signal payment approvals</h2><p class="warning">Only payment-verified orders can be approved. Verify the payment reference in Nexus Pay before granting signal access. A customer never receives admin permissions.</p><div class="scroll"><table><tr><th>Player</th><th>Package</th><th>Amount</th><th>Status</th><th>Reference</th><th>Round range / action</th></tr>{% for o in signal_orders %}<tr><td>{{ o.username }}<br>{{ o.phone_number }}</td><td>{{ o.plan_minutes }} rounds</td><td>KES {{ '%.2f'|format(o.amount) }}</td><td>{{ o.status }}</td><td>{{ o.reference }}</td><td>{% if o.status == 'PAYMENT_VERIFIED' %}<form method="post" action="/admin/signals/orders/{{ o.id }}/approve" onsubmit="return confirm('Confirm you independently verified this exact payment in Nexus Pay and want to activate signal access?')"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Approve signal access</button></form>{% else %}{% if o.start_round_id %}Rounds #{{ o.start_round_id }}–#{{ o.start_round_id + o.plan_minutes - 1 }}{% else %}Awaiting approval{% endif %}{% endif %}</td></tr>{% else %}<tr><td colspan="6">No signal orders yet.</td></tr>{% endfor %}</table></div></section>
+<form method="post" action="/admin/signals/publish" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end"><input type="hidden" name="csrf_token" value="{{ csrf }}"><label>Round / reference<input name="round_label" required maxlength="80" placeholder="Round 1234" style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><label>Signal time<input name="signal_time" required maxlength="80" placeholder="14:35 EAT" style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><label>Estimated multiplier<input name="predicted_multiplier" type="number" min="1" max="1000" step="0.01" required placeholder="1.80" style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><label>Confidence label<select name="confidence" style="display:block;width:100%;padding:10px;box-sizing:border-box"><option>Unrated</option><option>Low</option><option>Medium</option><option>High</option></select></label><label>Admin note<input name="notes" maxlength="500" placeholder="Optional context" style="display:block;width:100%;padding:10px;box-sizing:border-box"></label><button type="submit">Publish signal</button></form>
+<div class="scroll"><table><tr><th>Round</th><th>Time</th><th>Estimate</th><th>Label</th><th>Note</th><th>Action</th></tr>{% for sig in published_signals %}<tr><td>{{ sig.round_label }}</td><td>{{ sig.signal_time }}</td><td>{{ '%.2f'|format(sig.predicted_multiplier) }}x</td><td>{{ sig.confidence }}</td><td>{{ sig.notes or '—' }}</td><td><form method="post" action="/admin/signals/{{ sig.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Remove</button></form></td></tr>{% else %}<tr><td colspan="6">No published signals.</td></tr>{% endfor %}</table></div></section>
+<section id="signal-approvals"><h2>Aviator prediction / signal payment approvals</h2><p class="warning">Only payment-verified orders can be approved. Verify the payment reference in Nexus Pay before granting signal access. A customer never receives admin permissions.</p><div class="scroll"><table><tr><th>Player</th><th>Package</th><th>Amount</th><th>Status</th><th>Reference</th><th>Action / expiry</th></tr>{% for o in signal_orders %}<tr><td>{{ o.username }}<br>{{ o.phone_number }}</td><td>{{ o.plan_minutes }} minutes</td><td>KES {{ '%.2f'|format(o.amount) }}</td><td>{{ o.status }}</td><td>{{ o.reference }}</td><td>{% if o.status == 'PAYMENT_VERIFIED' %}<form method="post" action="/admin/signals/orders/{{ o.id }}/approve" onsubmit="return confirm('Confirm you independently verified this exact payment in Nexus Pay and want to activate signal access?')"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Approve signal access</button></form>{% else %}{{ o.expires_at or '—' }}{% endif %}</td></tr>{% else %}<tr><td colspan="6">No signal orders yet.</td></tr>{% endfor %}</table></div></section>
 <section><h2>Admin audit log</h2><div class="scroll"><table><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th><th>IP</th></tr>{% for a in audits %}<tr><td>{{ a.created_at }}</td><td>{{ a.admin_username }}</td><td>{{ a.action }}</td><td>{{ a.target_username or '—' }}</td><td>{{ a.details }}</td><td>{{ a.ip_address }}</td></tr>{% endfor %}</table></div></section>
 </main><script>
 async function refreshRoundMonitor(){
@@ -10541,7 +10444,6 @@ async function refreshRoundMonitor(){
     const data = await response.json();
     document.getElementById('admin-current-round').textContent = '#' + (data.current_round ?? '—');
     document.getElementById('admin-round-status').textContent = data.status;
-     document.getElementById('admin-current-multiplier').textContent = Number(data.current_multiplier || 1).toFixed(2) + 'x';
     document.getElementById('admin-next-round').textContent = '#' + (data.next_round ?? '—');
     document.getElementById('admin-betting-seconds').textContent = data.betting_seconds;
   } catch (_) {}
@@ -10576,10 +10478,7 @@ def admin_round_status():
             "current_round": current_round,
             "next_round": (int(current_round) + 1) if current_round is not None else 1,
             "status": status,
-            "current_multiplier": float(GAME.get("current_multiplier") or 1.0),
             "betting_seconds": seconds,
-            "source": "Tech-Star internal game engine",
-            "external_provider_feed": "NOT_CONNECTED",
         })
 
 
@@ -10607,7 +10506,6 @@ def admin_dashboard():
         audits = conn.execute("SELECT * FROM admin_audit_logs ORDER BY id DESC LIMIT 100").fetchall()
         signal_orders = conn.execute("SELECT * FROM signal_orders ORDER BY id DESC LIMIT 100").fetchall()
         published_signals = conn.execute("SELECT * FROM aviator_signals WHERE status='PUBLISHED' ORDER BY id DESC LIMIT 100").fetchall()
-        recent_rounds = conn.execute("SELECT id,crash_point,started_at,ended_at FROM rounds WHERE ended_at IS NOT NULL ORDER BY id DESC LIMIT 10").fetchall()
     finally:
         conn.close()
     with GAME_LOCK:
@@ -10620,10 +10518,9 @@ def admin_dashboard():
             "current_round": current_round,
             "next_round": (int(current_round) + 1) if current_round is not None else 1,
             "status": game_status,
-            "current_multiplier": float(GAME.get("current_multiplier") or 1.0),
             "betting_seconds": betting_seconds,
         }
-    return render_template_string(ADMIN_HTML, admin=session["username"], stats=stats, users=users, deposits=deposits, tx_history=tx_history, withdrawals=withdrawals, audits=audits, signal_orders=signal_orders, published_signals=published_signals, recent_rounds=recent_rounds, round_monitor=round_monitor, csrf=_csrf_token())
+    return render_template_string(ADMIN_HTML, admin=session["username"], stats=stats, users=users, deposits=deposits, tx_history=tx_history, withdrawals=withdrawals, audits=audits, signal_orders=signal_orders, published_signals=published_signals, round_monitor=round_monitor, csrf=_csrf_token())
 
 
 @app.route("/admin/deposits/<int:transaction_id>/approve", methods=["POST"])
