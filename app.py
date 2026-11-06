@@ -2063,20 +2063,6 @@ def api_state():
                     else None
                 ),
 
-            "next_crash_point_1":
-                (
-                    GAME["next_crash_point_1"]
-                    if is_admin
-                    else None
-                ),
-
-            "next_crash_point_2":
-                (
-                    GAME["next_crash_point_2"]
-                    if is_admin
-                    else None
-                ),
-
             "is_admin":
                 is_admin,
 
@@ -3393,10 +3379,11 @@ ADMIN_HTML = r"""
 <div class="cards">
 <div class="card">Current round<div class="num" id="admin-current-round">#{{ round_monitor.current_round or '—' }}</div></div>
 <div class="card">Current status<div class="num" id="admin-round-status">{{ round_monitor.status }}</div></div>
-<div class="card">Next round<div class="num" id="admin-next-round">#{{ round_monitor.next_round or '—' }}</div></div>
+<div class="card">Next round number<div class="num" id="admin-next-round">#{{ round_monitor.next_round or '—' }}</div></div>
+<div class="card">Following round number<div class="num" id="admin-following-round">#{{ round_monitor.following_round or '—' }}</div></div>
 <div class="card">Betting window<div class="num"><span id="admin-betting-seconds">{{ round_monitor.betting_seconds }}</span> sec</div></div>
 </div>
-<p><small>Round status updates as the game engine advances. The next round number is shown without revealing its crash result or future outcome.</small></p></section>
+<p><small>Admin-only round monitor. It displays the next two round numbers and live engine status, never undisclosed crash multipliers or future outcomes.</small></p></section>
 <div class="cards"><div class="card">Registered users<div class="num">{{ stats.users }}</div></div><div class="card">Active players (last 5 min)<div class="num">{{ stats.active }}</div></div><div class="card">Verified deposits awaiting approval<div class="num">{{ stats.pending_count }}</div></div><div class="card">Total confirmed deposits<div class="num">KES {{ '%.2f'|format(stats.deposit_total) }}</div></div><div class="card">Pending deposit value<div class="num">KES {{ '%.2f'|format(stats.pending_total) }}</div></div><div class="card">Confirmed signal sales<div class="num">KES {{ '%.2f'|format(stats.signal_sales_total) }}</div></div><div class="card">Active signal subscriptions<div class="num">{{ stats.signal_active }}</div></div><div class="card">Verified signal payments awaiting approval<div class="num">{{ stats.signal_pending_approval }}</div></div></div>
 <section id="deposit-approvals"><h2>Payment-verified deposits awaiting approval</h2><p class="warning">Approval credits the user's spendable balance. Pending/unverified deposits cannot be used for betting.</p><div class="scroll"><table><tr><th>Reference</th><th>User / phone</th><th>Amount</th><th>Status</th><th>Created</th><th>Action</th></tr>{% for tx in deposits %}<tr><td>{{ tx.reference }}</td><td>{{ tx.username }}<br>{{ tx.phone_number }}</td><td>KES {{ '%.2f'|format(tx.amount) }}</td><td>{{ tx.status }}</td><td>{{ tx.created_at }}</td><td>{% if tx.status == 'PAYMENT_VERIFIED' %}<form method="post" action="/admin/deposits/{{ tx.id }}/approve"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button type="submit">Approve & credit</button></form>{% else %}—{% endif %}</td></tr>{% else %}<tr><td colspan="6">No deposits awaiting approval.</td></tr>{% endfor %}</table></div></section>
 <section><h2>Registered users</h2><div class="scroll"><table><tr><th>ID</th><th>Username</th><th>Phone</th><th>Role</th><th>Spendable balance</th><th>Created</th><th>Last active</th></tr>{% for u in users %}<tr><td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.phone_number }}</td><td>{{ u.role }}</td><td>KES {{ '%.2f'|format(u.balance) }}</td><td>{{ u.created_at }}</td><td>{{ u.last_seen_at or '—' }}</td></tr>{% endfor %}</table></div></section>
@@ -3415,6 +3402,7 @@ async function refreshRoundMonitor(){
     document.getElementById('admin-current-round').textContent = '#' + (data.current_round ?? '—');
     document.getElementById('admin-round-status').textContent = data.status;
     document.getElementById('admin-next-round').textContent = '#' + (data.next_round ?? '—');
+    document.getElementById('admin-following-round').textContent = '#' + (data.following_round ?? '—');
     document.getElementById('admin-betting-seconds').textContent = data.betting_seconds;
   } catch (_) {}
 }
@@ -3447,6 +3435,7 @@ def admin_round_status():
         return jsonify({
             "current_round": current_round,
             "next_round": (int(current_round) + 1) if current_round is not None else 1,
+            "following_round": (int(current_round) + 2) if current_round is not None else 2,
             "status": status,
             "betting_seconds": seconds,
         })
@@ -3487,6 +3476,7 @@ def admin_dashboard():
         round_monitor = {
             "current_round": current_round,
             "next_round": (int(current_round) + 1) if current_round is not None else 1,
+            "following_round": (int(current_round) + 2) if current_round is not None else 2,
             "status": game_status,
             "betting_seconds": betting_seconds,
         }
@@ -4877,12 +4867,12 @@ canvas {
 >
     ⚡ ADMIN CONTROLS:
 
-    NEXT ROUND:
+    NEXT ROUND NUMBER:
     <span id="next1">-</span>
 
     |
 
-    ROUND AFTER:
+    FOLLOWING ROUND NUMBER:
     <span id="next2">-</span>
 </div>
 
@@ -5755,24 +5745,11 @@ async function syncState() {
                 "block";
 
 
-            document.getElementById(
-                "next1"
-            ).innerText =
-                data.next_crash_point_1
-                    ? Number(
-                        data.next_crash_point_1
-                    ).toFixed(2) + "x"
-                    : "-";
-
-
-            document.getElementById(
-                "next2"
-            ).innerText =
-                data.next_crash_point_2
-                    ? Number(
-                        data.next_crash_point_2
-                    ).toFixed(2) + "x"
-                    : "-";
+            const nextRoundNumber = Number(data.round_id || 0) + 1;
+            document.getElementById("next1").innerText =
+                data.round_id == null ? "#1" : "#" + nextRoundNumber;
+            document.getElementById("next2").innerText =
+                data.round_id == null ? "#2" : "#" + (nextRoundNumber + 1);
 
         } else {
 
